@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_USER = "mrushdan"
+        IMAGE          = "${DOCKERHUB_USER}/flask-hello"
+        TAG            = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                git branch: 'main', url: 'https://github.com/mrushdan/flask-jenkins.git'
+                sh 'docker build -t $IMAGE:$TAG -t $IMAGE:latest .'
+            }
+        }
+
+        stage('Login and Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_TOKEN'
+                )]) {
+                    sh 'echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin'
+                    sh 'docker push $IMAGE:$TAG'
+                    sh 'docker push $IMAGE:latest'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
+        }
+    }
+}
